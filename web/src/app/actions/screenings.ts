@@ -243,6 +243,16 @@ export async function getScreeningDetail(screeningId: string) {
 
   // 撮影画像の閲覧は本部管理者のみ。スタッフにはパスも返さない。
   const canViewImages = current.profile.role === "admin";
+  const debugResponse = canViewImages
+    ? await supabase
+        .from("screening_analysis_debug_responses")
+        .select("raw_response")
+        .eq("screening_id", screeningId)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (debugResponse.error) {
+    throwSupabaseError(debugResponse.error, "AI解析デバッグ情報の取得");
+  }
   const canRetryAnalysis = Boolean(
     screening.right_image_url && screening.left_image_url
   );
@@ -272,6 +282,7 @@ export async function getScreeningDetail(screeningId: string) {
         },
     joints: joints ?? [],
     images,
+    rawAiApiResponse: canViewImages ? debugResponse.data?.raw_response ?? null : null,
     canRetryAnalysis,
   };
 }

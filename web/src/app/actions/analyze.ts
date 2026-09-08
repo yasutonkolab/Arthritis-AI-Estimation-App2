@@ -17,7 +17,13 @@ import {
   isStaleProcessing,
 } from "@/lib/screening-staleness";
 import type { Json } from "@/lib/supabase/database.types";
-import type { AiHandResult, AnalyzeResponse, HandSide, Screening } from "@/lib/types";
+import type {
+  AiHandResult,
+  AnalyzeResponse,
+  AnalyzeResponseWithRaw,
+  HandSide,
+  Screening,
+} from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
 /** AI_API_URLが未設定のローカル開発用モック。 */
@@ -36,10 +42,9 @@ function mockHandAnalyze(side: HandSide): AiHandResult {
   };
 }
 
-function mockAnalyze(): AnalyzeResponse {
+function mockAnalyze(): AnalyzeResponseWithRaw {
   const hands = [mockHandAnalyze("left"), mockHandAnalyze("right")];
-
-  return {
+  const analysis: AnalyzeResponse = {
     model_version: "mock-v1",
     hands,
     ra_detected: hands.some((hand) => hand.ra_detected),
@@ -48,12 +53,13 @@ function mockAnalyze(): AnalyzeResponse {
       0
     ),
   };
+  return { ...analysis, raw_response: analysis as unknown as Json };
 }
 
 async function callAiApi(
   rightImageUrl: string,
   leftImageUrl: string
-): Promise<AnalyzeResponse> {
+): Promise<AnalyzeResponseWithRaw> {
   const aiApiUrl = process.env.AI_API_URL?.trim();
 
   if (!aiApiUrl) {
@@ -126,6 +132,7 @@ async function runAnalysis(
           p_ra_detected: result.ra_detected,
           p_total_positive_joints: result.total_positive_joints,
           p_ai_model_version: result.model_version ?? "",
+          p_raw_response: result.raw_response,
           p_hands: result.hands.map((hand) => ({
             side: hand.side,
             ra_detected: hand.ra_detected,

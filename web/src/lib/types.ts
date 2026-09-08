@@ -51,3 +51,8 @@ export interface AnalyzeResponse {
   ra_detected: boolean;
   total_positive_joints: number;
 }
+
+/** 検証済みの解析結果と、管理者向けに保存するAPIの成功レスポンス。 */
+export interface AnalyzeResponseWithRaw extends AnalyzeResponse {
+  raw_response: Json;
+}

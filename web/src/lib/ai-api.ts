@@ -1,6 +1,7 @@
 import { AnalysisExecutionError } from "./analysis-error.ts";
 import { validateAnalyzeResponse } from "./analyze-response.ts";
-import type { AnalyzeResponse, HandSide } from "./types.ts";
+import type { AnalyzeResponseWithRaw, HandSide } from "./types.ts";
+import type { Json } from "./supabase/database.types.ts";
 
 interface AiImageInput {
   side: HandSide;
@@ -33,7 +34,7 @@ export async function requestAiAnalysis(
   aiApiKey: string,
   images: readonly AiImageInput[],
   options: RequestAiAnalysisOptions = {}
-): Promise<AnalyzeResponse> {
+): Promise<AnalyzeResponseWithRaw> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timeout = setTimeout(
@@ -125,10 +126,12 @@ export async function requestAiAnalysis(
     logAiApiResponse(response.status, value);
 
     try {
-      return validateAnalyzeResponse(
+      const analysis = validateAnalyzeResponse(
         value,
         images.map((image) => image.side)
       );
+      // JSON.parseが成功した値だけを保存対象にする。URL等を含むリクエストは保存しない。
+      return { ...analysis, raw_response: value as Json };
     } catch (error) {
       throw new AnalysisExecutionError(
         "api_invalid_response",

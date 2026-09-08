@@ -62,6 +62,32 @@ export type Database = {
           },
         ]
       }
+      screening_analysis_debug_responses: {
+        Row: {
+          created_at: string
+          raw_response: Json
+          screening_id: string
+        }
+        Insert: {
+          created_at?: string
+          raw_response: Json
+          screening_id: string
+        }
+        Update: {
+          created_at?: string
+          raw_response?: Json
+          screening_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_analysis_debug_responses_screening_id_fkey"
+            columns: ["screening_id"]
+            isOneToOne: true
+            referencedRelation: "screenings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           clinic_id: string | null
@@ -237,6 +263,7 @@ export type Database = {
           p_ai_model_version: string
           p_hands: Json
           p_ra_detected: boolean
+          p_raw_response: Json
           p_screening_id: string
           p_total_positive_joints: number
         }

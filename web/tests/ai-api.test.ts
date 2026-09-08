@@ -75,6 +75,7 @@ test("AI API: v1エンドポイントへ認証付きで画像を入力順に送�
   assert.deepEqual(JSON.parse(String(requestedInit?.body)), { images: IMAGES });
   assert.equal(result.total_positive_joints, 3);
   assert.equal(result.model_version, "2026-09-08-v1");
+  assert.deepEqual(result.raw_response, validResponse());
 });
 
 test("AI API: 有効化時だけ成功レスポンスをサーバーログへ出力する", async (t) => {

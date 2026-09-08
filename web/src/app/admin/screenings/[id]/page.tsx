@@ -29,7 +29,7 @@ export default async function AdminScreeningDetailPage({
   ]);
   if (!detail) notFound();
 
-  const { screening, joints, images, canRetryAnalysis } = detail;
+  const { screening, joints, images, rawAiApiResponse, canRetryAnalysis } = detail;
   const isProcessing = isProcessingStatus(screening.status);
   const isInterrupted = isStaleProcessing(
     screening.status,
@@ -142,6 +142,23 @@ export default async function AdminScreeningDetailPage({
             </div>
           </dl>
         </section>
+      )}
+
+      {screening.status === "completed" && (
+        <details className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-secondary-foreground">
+          <summary className="cursor-pointer font-medium text-muted-foreground">
+            AI画像解析 レスポンスデータ
+          </summary>
+          {rawAiApiResponse ? (
+            <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-surface-muted p-3 font-mono text-[11px] leading-relaxed text-foreground">
+              {JSON.stringify(rawAiApiResponse, null, 2)}
+            </pre>
+          ) : (
+            <p className="mt-2 text-muted-foreground">
+              この解析のAPIレスポンスは保存されていません。
+            </p>
+          )}
+        </details>
       )}
 
       <ScreeningResult

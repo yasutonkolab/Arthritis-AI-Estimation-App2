@@ -88,6 +88,14 @@ create index if not exists idx_joint_results_screening on public.joint_results(s
 create unique index if not exists idx_joint_results_screening_side_joint
   on public.joint_results(screening_id, side, joint_name);
 
+-- ========== screening_analysis_debug_responses ==========
+-- AI APIの成功レスポンス原文。管理者のみがデバッグ目的で参照できる。
+create table if not exists public.screening_analysis_debug_responses (
+  screening_id uuid primary key references public.screenings(id) on delete cascade,
+  raw_response jsonb not null check (jsonb_typeof(raw_response) = 'object'),
+  created_at timestamptz not null default now()
+);
+
 -- SupabaseのData APIでRLSを評価させるため、利用ロールにテーブル権限を付与する。
 -- 実際に許可する行・操作は下記のRLSポリシーで制限する。
 grant usage on schema public to authenticated, service_role;
@@ -396,6 +404,7 @@ alter table public.profiles enable row level security;
 alter table public.subjects enable row level security;
 alter table public.screenings enable row level security;
 alter table public.joint_results enable row level security;
+alter table public.screening_analysis_debug_responses enable row level security;
 
 -- clinics
 drop policy if exists "clinics: admin は全件参照・編集可能, staff は自分の所属クリニックを参照可能" on public.clinics;
@@ -523,6 +532,17 @@ create policy "joint_results_tenant_access"
     )
   );
 
+-- screening_analysis_debug_responses
+-- Data APIからの読み取りも、RLSで有効な本部管理者だけに限定する。
+drop policy if exists "screening_analysis_debug_responses_admin_select"
+  on public.screening_analysis_debug_responses;
+create policy "screening_analysis_debug_responses_admin_select"
+  on public.screening_analysis_debug_responses for select
+  using (public.is_admin());
+
+grant select on table public.screening_analysis_debug_responses to authenticated, service_role;
+grant insert, update, delete on table public.screening_analysis_debug_responses to service_role;
+
 -- ========== Storage バケット ==========
 insert into storage.buckets (id, name, public)
 values ('hand-images', 'hand-images', false)
@@ -626,6 +646,7 @@ begin
     raise exception '完了または失敗した記録のみ再解析できます';
   end if;
   delete from public.joint_results where screening_id = p_screening_id;
+  delete from public.screening_analysis_debug_responses where screening_id = p_screening_id;
   return next;
 end;
 $$;
@@ -803,7 +824,8 @@ create or replace function public.complete_ra_screening_analysis_with_metadata(
   p_ra_detected boolean,
   p_total_positive_joints integer,
   p_hands jsonb,
-  p_ai_model_version text
+  p_ai_model_version text,
+  p_raw_response jsonb
 )
 returns void
 language plpgsql
@@ -821,9 +843,17 @@ begin
   update public.screenings
   set ai_model_version = nullif(trim(p_ai_model_version), '')
   where id = p_screening_id;
+
+  insert into public.screening_analysis_debug_responses (
+    screening_id, raw_response
+  )
+  values (p_screening_id, p_raw_response)
+  on conflict (screening_id) do update
+  set raw_response = excluded.raw_response,
+      created_at = now();
 end;
 $$;
 
-revoke all on function public.complete_ra_screening_analysis_with_metadata(uuid, boolean, integer, jsonb, text) from public;
-revoke all on function public.complete_ra_screening_analysis_with_metadata(uuid, boolean, integer, jsonb, text) from authenticated;
-grant execute on function public.complete_ra_screening_analysis_with_metadata(uuid, boolean, integer, jsonb, text) to service_role;
+revoke all on function public.complete_ra_screening_analysis_with_metadata(uuid, boolean, integer, jsonb, text, jsonb) from public;
+revoke all on function public.complete_ra_screening_analysis_with_metadata(uuid, boolean, integer, jsonb, text, jsonb) from authenticated;
+grant execute on function public.complete_ra_screening_analysis_with_metadata(uuid, boolean, integer, jsonb, text, jsonb) to service_role;
