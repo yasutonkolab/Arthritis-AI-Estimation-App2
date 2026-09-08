@@ -72,7 +72,7 @@ scripts/deploy-cloud-run.sh PROJECT_ID PROJECT_REF.supabase.co ra-ai-api-key
 
 Cloud Build のソースアーカイブは `{PROJECT_ID}_cloudbuild` に残ります。Artifact Registry のクリーンアップはこのバケットには効かないため、作成から 3 日以上経ったオブジェクトを削除する Lifecycle を付けます。
 
-成功レスポンスのログにはスクリーニング結果と `model_version` を含めます。署名付き URL、API キー、画像は出しません。
+リクエストログには手の左右と署名付き画像 URL、成功レスポンスのログにはスクリーニング結果と `model_version` を含めます。署名付き URL の検証に失敗した場合は、`image_url_validation_failed` イベントに対象の左右・URLと、許可外ホスト、スキーム不一致、不正ポート、署名パス不一致、token 不足などの具体的な判定理由を記録します。画像の取得に失敗した場合は、`image_download_failed` イベントに HTTP ステータス、Content-Type、サイズ超過、タイムアウト、通信例外、画像デコード失敗などの原因を記録します。API キーと画像データは出しません。署名付き URL のトークンも Cloud Logging に記録されるため、ログの閲覧権限と保持期間を適切に制限してください。
 
 ## 使い方
 

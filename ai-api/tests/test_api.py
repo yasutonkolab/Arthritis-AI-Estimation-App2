@@ -143,7 +143,7 @@ def test_one_hand_returns_the_aggregate_shape(monkeypatch):
     assert "image_url" not in response.text
 
 
-def test_request_and_response_are_logged_without_signed_url(monkeypatch):
+def test_request_and_response_are_logged_with_signed_url(monkeypatch):
     events = []
     monkeypatch.setattr(api, "log_event", lambda event, **fields: events.append({"event": event, **fields}))
     app, _ = make_app(monkeypatch, results=(hand_result(positives=2, detected_ra=True),))
@@ -157,10 +157,11 @@ def test_request_and_response_are_logged_without_signed_url(monkeypatch):
     assert response.status_code == 200
     request_event = next(event for event in events if event["event"] == "ra_screening_request")
     response_event = next(event for event in events if event["event"] == "ra_screening_response")
-    assert request_event["request"] == {"images": [{"side": "left"}]}
+    assert request_event["request"] == {
+        "images": [{"side": "left", "image_url": url}],
+    }
     assert response_event["response"] == response.json()
     assert response_event["model_version"] == CURRENT_MODEL_VERSION
-    assert url not in str(events)
 
 
 def test_two_hands_preserve_order_and_aggregate(monkeypatch):
@@ -301,19 +302,24 @@ def test_two_images_download_in_parallel_and_infer_in_order(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("response", "code"),
+    ("response", "code", "reason"),
     [
-        (FakeResponse(status_code=302), "IMAGE_FETCH_FAILED"),
-        (FakeResponse(content_type="text/plain"), "UNSUPPORTED_IMAGE_TYPE"),
-        (FakeResponse(headers={"Content-Length": str(api.MAX_IMAGE_BYTES + 1)}), "IMAGE_TOO_LARGE"),
-        (FakeResponse(content=b"not an image"), "INVALID_IMAGE"),
+        (FakeResponse(status_code=302), "IMAGE_FETCH_FAILED", "redirect_not_allowed"),
+        (FakeResponse(content_type="text/plain"), "UNSUPPORTED_IMAGE_TYPE", "unsupported_content_type"),
+        (
+            FakeResponse(headers={"Content-Length": str(api.MAX_IMAGE_BYTES + 1)}),
+            "IMAGE_TOO_LARGE",
+            "content_length_exceeded",
+        ),
+        (FakeResponse(content=b"not an image"), "INVALID_IMAGE", "image_decode_failed"),
     ],
 )
-def test_download_errors_are_mapped_without_exposing_storage_details(monkeypatch, response, code):
+def test_download_errors_are_mapped_with_diagnostics(monkeypatch, response, code, reason):
     monkeypatch.setattr(api.requests, "get", lambda *_, **__: response)
     with pytest.raises(api.APIError) as error:
         api.download_signed_image(signed_url())
     assert error.value.code == code
+    assert error.value.diagnostic["reason"] == reason
 
 
 def test_download_timeout_is_mapped(monkeypatch):
@@ -324,6 +330,42 @@ def test_download_timeout_is_mapped(monkeypatch):
     with pytest.raises(api.APIError) as error:
         api.download_signed_image(signed_url())
     assert error.value.code == "IMAGE_FETCH_TIMEOUT"
+    assert error.value.diagnostic == {
+        "reason": "request_timeout",
+        "error_type": "Timeout",
+    }
+
+
+def test_download_failure_logs_diagnostic(monkeypatch):
+    events = []
+    monkeypatch.setattr(api, "log_event", lambda event, **fields: events.append({"event": event, **fields}))
+
+    def download(_):
+        raise api.APIError(
+            502,
+            "IMAGE_FETCH_FAILED",
+            "Could not retrieve the image.",
+            diagnostic={"reason": "unexpected_http_status", "http_status": 403},
+        )
+
+    app, _ = make_app(monkeypatch, download=download)
+    url = signed_url("expired.jpg")
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/ra-screening",
+            headers={"Authorization": "Bearer test-key"},
+            json={"images": [{"side": "right", "image_url": url}]},
+        )
+
+    assert response.status_code == 502
+    download_event = next(event for event in events if event["event"] == "image_download_failed")
+    assert download_event == {
+        "event": "image_download_failed",
+        "request_id": download_event["request_id"],
+        "side": "right",
+        "image_url": url,
+        "diagnostic": {"reason": "unexpected_http_status", "http_status": 403},
+    }
 
 
 def test_signed_url_accepts_local_supabase(monkeypatch):
@@ -336,18 +378,57 @@ def test_signed_url_accepts_local_supabase(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "url",
+    ("url", "reason"),
     [
-        "http://project.supabase.co/storage/v1/object/sign/bucket/a.jpg?token=x",
-        "https://other.supabase.co/storage/v1/object/sign/bucket/a.jpg?token=x",
-        "https://project.supabase.co/storage/v1/object/public/bucket/a.jpg?token=x",
-        "https://project.supabase.co/storage/v1/object/sign/bucket/a.jpg",
+        (
+            "http://project.supabase.co/storage/v1/object/sign/bucket/a.jpg?token=x",
+            "scheme_not_allowed",
+        ),
+        (
+            "https://other.supabase.co/storage/v1/object/sign/bucket/a.jpg?token=x",
+            "host_not_allowed",
+        ),
+        (
+            "https://project.supabase.co/storage/v1/object/public/bucket/a.jpg?token=x",
+            "signed_object_path_required",
+        ),
+        (
+            "https://project.supabase.co/storage/v1/object/sign/bucket/a.jpg",
+            "missing_signed_token",
+        ),
     ],
 )
-def test_signed_url_rejects_non_contract_locations(url):
+def test_signed_url_rejects_non_contract_locations(url, reason):
     with pytest.raises(api.APIError) as error:
         api.validate_signed_url(url, frozenset({"project.supabase.co"}))
     assert error.value.code == "INVALID_REQUEST"
+    assert error.value.diagnostic["reason"] == reason
+
+
+def test_signed_url_validation_failure_logs_diagnostic(monkeypatch):
+    events = []
+    monkeypatch.setattr(api, "log_event", lambda event, **fields: events.append({"event": event, **fields}))
+    app, _ = make_app(monkeypatch)
+    url = "https://other.supabase.co/storage/v1/object/sign/bucket/a.jpg?token=x"
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/ra-screening",
+            headers={"Authorization": "Bearer test-key"},
+            json={"images": [{"side": "left", "image_url": url}]},
+        )
+
+    assert response.status_code == 422
+    validation_event = next(
+        event for event in events if event["event"] == "image_url_validation_failed"
+    )
+    assert validation_event["side"] == "left"
+    assert validation_event["image_url"] == url
+    assert validation_event["diagnostic"] == {
+        "reason": "host_not_allowed",
+        "hostname": "other.supabase.co",
+        "allowed_hosts": ["project.supabase.co"],
+    }
 
 
 def test_success_response_matches_contract_fixture(monkeypatch):

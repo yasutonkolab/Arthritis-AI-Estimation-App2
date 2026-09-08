@@ -56,16 +56,24 @@ def configure_logging() -> None:
 
 
 def log_event(event: str, **fields: object) -> None:
-    """Write safe, structured application logs without request secrets or images."""
+    """Write structured application logs without API keys or image contents."""
     logger.info(json.dumps({"event": event, **fields}, ensure_ascii=False, default=str))
 
 
 class APIError(Exception):
-    def __init__(self, status_code: int, code: str, message: str, side: str | None = None) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        side: str | None = None,
+        diagnostic: dict[str, object] | None = None,
+    ) -> None:
         self.status_code = status_code
         self.code = code
         self.message = message
         self.side = side
+        self.diagnostic = diagnostic
         super().__init__(message)
 
 
@@ -124,22 +132,58 @@ def is_authorized(authorization: str, api_key: str) -> bool:
 
 
 def validate_signed_url(url: str, allowed_hosts: frozenset[str]) -> None:
-    parsed = urlparse(url)
-    hostname = parsed.hostname.lower() if parsed.hostname else None
+    def invalid(reason: str, **details: object) -> APIError:
+        return APIError(
+            422,
+            "INVALID_REQUEST",
+            "image_url must be a Supabase signed object URL.",
+            diagnostic={"reason": reason, **details},
+        )
+
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname.lower() if parsed.hostname else None
+    except ValueError as exc:
+        raise invalid("invalid_url", parse_error=str(exc)) from exc
+
+    if hostname is None:
+        raise invalid("missing_hostname")
+    if hostname not in allowed_hosts:
+        raise invalid(
+            "host_not_allowed",
+            hostname=hostname,
+            allowed_hosts=sorted(allowed_hosts),
+        )
+
     loopback = hostname in LOOPBACK_HOSTS
     allowed_schemes = {"http", "https"} if loopback else {"https"}
     allowed_ports = LOOPBACK_PORTS if loopback else PUBLIC_PORTS
-    if (
-        hostname is None
-        or hostname not in allowed_hosts
-        or parsed.scheme not in allowed_schemes
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.port not in allowed_ports
-        or not parsed.path.startswith(SIGNED_OBJECT_PATH_PREFIX)
-        or not parse_qs(parsed.query).get("token")
-    ):
-        raise APIError(422, "INVALID_REQUEST", "image_url must be a Supabase signed object URL.")
+    if parsed.scheme not in allowed_schemes:
+        raise invalid(
+            "scheme_not_allowed",
+            scheme=parsed.scheme or None,
+            allowed_schemes=sorted(allowed_schemes),
+        )
+    if parsed.username is not None or parsed.password is not None:
+        raise invalid("embedded_credentials_not_allowed")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise invalid("invalid_port", parse_error=str(exc)) from exc
+    if port not in allowed_ports:
+        raise invalid(
+            "port_not_allowed",
+            port=port,
+            allowed_ports=sorted(port for port in allowed_ports if port is not None),
+        )
+    if not parsed.path.startswith(SIGNED_OBJECT_PATH_PREFIX):
+        raise invalid(
+            "signed_object_path_required",
+            path=parsed.path,
+            required_prefix=SIGNED_OBJECT_PATH_PREFIX,
+        )
+    if not parse_qs(parsed.query).get("token"):
+        raise invalid("missing_signed_token")
 
 
 def load_model_version(manifest_path: str) -> str:
@@ -171,36 +215,113 @@ def download_signed_image(url: str) -> Image.Image:
             timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
         ) as response:
             if 300 <= response.status_code < 400:
-                raise APIError(502, "IMAGE_FETCH_FAILED", "Could not retrieve the image.")
+                raise APIError(
+                    502,
+                    "IMAGE_FETCH_FAILED",
+                    "Could not retrieve the image.",
+                    diagnostic={
+                        "reason": "redirect_not_allowed",
+                        "http_status": response.status_code,
+                    },
+                )
             if response.status_code != 200:
-                raise APIError(502, "IMAGE_FETCH_FAILED", "Could not retrieve the image.")
-            if _content_type(response) not in ALLOWED_IMAGE_TYPES:
-                raise APIError(415, "UNSUPPORTED_IMAGE_TYPE", "Only JPEG and PNG images are supported.")
+                raise APIError(
+                    502,
+                    "IMAGE_FETCH_FAILED",
+                    "Could not retrieve the image.",
+                    diagnostic={
+                        "reason": "unexpected_http_status",
+                        "http_status": response.status_code,
+                    },
+                )
+            content_type = _content_type(response)
+            if content_type not in ALLOWED_IMAGE_TYPES:
+                raise APIError(
+                    415,
+                    "UNSUPPORTED_IMAGE_TYPE",
+                    "Only JPEG and PNG images are supported.",
+                    diagnostic={
+                        "reason": "unsupported_content_type",
+                        "content_type": content_type or None,
+                        "allowed_content_types": sorted(ALLOWED_IMAGE_TYPES),
+                    },
+                )
             declared_length = response.headers.get("Content-Length")
             if declared_length and int(declared_length) > MAX_IMAGE_BYTES:
-                raise APIError(413, "IMAGE_TOO_LARGE", "Image must be 10 MiB or smaller.")
+                raise APIError(
+                    413,
+                    "IMAGE_TOO_LARGE",
+                    "Image must be 10 MiB or smaller.",
+                    diagnostic={
+                        "reason": "content_length_exceeded",
+                        "content_length": int(declared_length),
+                        "max_image_bytes": MAX_IMAGE_BYTES,
+                    },
+                )
             content = bytearray()
             for chunk in response.iter_content(chunk_size=64 * 1024):
                 content.extend(chunk)
                 if len(content) > MAX_IMAGE_BYTES:
-                    raise APIError(413, "IMAGE_TOO_LARGE", "Image must be 10 MiB or smaller.")
+                    raise APIError(
+                        413,
+                        "IMAGE_TOO_LARGE",
+                        "Image must be 10 MiB or smaller.",
+                        diagnostic={
+                            "reason": "download_size_exceeded",
+                            "downloaded_bytes": len(content),
+                            "max_image_bytes": MAX_IMAGE_BYTES,
+                        },
+                    )
     except APIError:
         raise
     except requests.Timeout as exc:
-        raise APIError(504, "IMAGE_FETCH_TIMEOUT", "Timed out retrieving the image.") from exc
+        raise APIError(
+            504,
+            "IMAGE_FETCH_TIMEOUT",
+            "Timed out retrieving the image.",
+            diagnostic={"reason": "request_timeout", "error_type": type(exc).__name__},
+        ) from exc
     except (requests.RequestException, ValueError) as exc:
-        raise APIError(502, "IMAGE_FETCH_FAILED", "Could not retrieve the image.") from exc
+        raise APIError(
+            502,
+            "IMAGE_FETCH_FAILED",
+            "Could not retrieve the image.",
+            diagnostic={
+                "reason": "request_failed",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
+        ) from exc
 
     try:
         Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
         with Image.open(io.BytesIO(content)) as opened:
             if opened.width * opened.height > MAX_IMAGE_PIXELS:
-                raise APIError(413, "IMAGE_TOO_LARGE", "Image must have 20 million pixels or fewer.")
+                raise APIError(
+                    413,
+                    "IMAGE_TOO_LARGE",
+                    "Image must have 20 million pixels or fewer.",
+                    diagnostic={
+                        "reason": "pixel_count_exceeded",
+                        "width": opened.width,
+                        "height": opened.height,
+                        "max_image_pixels": MAX_IMAGE_PIXELS,
+                    },
+                )
             return ImageOps.exif_transpose(opened).convert("RGB")
     except APIError:
         raise
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-        raise APIError(422, "INVALID_IMAGE", "Image data is invalid or cannot be decoded.") from exc
+        raise APIError(
+            422,
+            "INVALID_IMAGE",
+            "Image data is invalid or cannot be decoded.",
+            diagnostic={
+                "reason": "image_decode_failed",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
+        ) from exc
 
 
 def create_app(
@@ -303,7 +424,12 @@ def create_app(
         log_event(
             "ra_screening_request",
             request_id=request.state.request_id,
-            request={"images": [{"side": image.side} for image in payload.images]},
+            request={
+                "images": [
+                    {"side": image.side, "image_url": image.image_url}
+                    for image in payload.images
+                ]
+            },
         )
         authorization = request.headers.get("Authorization", "")
         if not is_authorized(authorization, request.app.state.settings.api_key):
@@ -313,6 +439,13 @@ def create_app(
             try:
                 validate_signed_url(submitted_image.image_url, request.app.state.settings.supabase_storage_hosts)
             except APIError as error:
+                log_event(
+                    "image_url_validation_failed",
+                    request_id=request.state.request_id,
+                    side=submitted_image.side,
+                    image_url=submitted_image.image_url,
+                    diagnostic=error.diagnostic,
+                )
                 raise APIError(error.status_code, error.code, error.message, submitted_image.side) from error
 
         fetch_started = time.perf_counter()
@@ -326,6 +459,13 @@ def create_app(
                 try:
                     images.append(download.result())
                 except APIError as error:
+                    log_event(
+                        "image_download_failed",
+                        request_id=request.state.request_id,
+                        side=submitted_image.side,
+                        image_url=submitted_image.image_url,
+                        diagnostic=error.diagnostic,
+                    )
                     raise APIError(error.status_code, error.code, error.message, submitted_image.side) from error
         fetch_ms = (time.perf_counter() - fetch_started) * 1000
 
