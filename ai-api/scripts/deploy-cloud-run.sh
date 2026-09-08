@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [[ $# -lt 3 || $# -gt 4 ]]; then
-  echo "Usage: $0 PROJECT_ID SUPABASE_STORAGE_HOST API_KEY_SECRET_NAME [SERVICE_NAME]" >&2
+  echo "Usage: $0 PROJECT_ID SUPABASE_STORAGE_HOSTS API_KEY_SECRET_NAME [SERVICE_NAME]" >&2
   exit 2
 fi
 
@@ -14,7 +14,7 @@ if [[ ! -f model/ra_screening_model.pt ]]; then
 fi
 
 project_id=$1
-supabase_host=$2
+supabase_hosts=$2
 secret_name=$3
 service_name=${4:-ra-image-inference}
 region=asia-northeast1
@@ -22,8 +22,8 @@ repository=ra-inference
 runtime_service_account="${service_name}-runtime@${project_id}.iam.gserviceaccount.com"
 image="${region}-docker.pkg.dev/${project_id}/${repository}/${service_name}:$(date +%Y%m%d%H%M%S)"
 
-if [[ ! "$supabase_host" =~ ^[a-z0-9][a-z0-9.-]*\.supabase\.co$ ]]; then
-  echo "SUPABASE_STORAGE_HOST must be one Supabase hostname, for example example.supabase.co." >&2
+if [[ ! "$supabase_hosts" =~ ^[a-z0-9][a-z0-9.-]*\.supabase\.co(,[a-z0-9][a-z0-9.-]*\.supabase\.co)*$ ]]; then
+  echo "SUPABASE_STORAGE_HOSTS must be one or more comma-separated Supabase hostnames, for example example.supabase.co,another.supabase.co." >&2
   exit 2
 fi
 
@@ -66,7 +66,7 @@ gcloud run deploy "$service_name" \
   --timeout=60 \
   --cpu-throttling \
   --service-account="$runtime_service_account" \
-  --set-env-vars="SUPABASE_STORAGE_HOSTS=${supabase_host}" \
+  --set-env-vars="^@^SUPABASE_STORAGE_HOSTS=${supabase_hosts}" \
   --set-secrets="AI_API_KEY=${secret_name}:latest"
 gcloud artifacts repositories delete "$repository" \
   --project="$project_id" \

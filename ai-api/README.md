@@ -64,6 +64,8 @@ gcloud secrets create ra-ai-api-key --replication-policy=automatic
 gcloud secrets versions add ra-ai-api-key --data-file=/path/to/key-file
 scripts/verify-received-files.sh
 scripts/deploy-cloud-run.sh PROJECT_ID PROJECT_REF.supabase.co ra-ai-api-key
+# 複数のSupabaseプロジェクトを許可する場合
+scripts/deploy-cloud-run.sh PROJECT_ID PROJECT_REF.supabase.co,ANOTHER_PROJECT_REF.supabase.co ra-ai-api-key
 ```
 
 `model/ra_screening_model.pt` が無いと Cloud Build は失敗します。スクリプトは Artifact Registry のリポジトリが無ければ作り、`cloudbuild.yaml` で linux/amd64 イメージに重みを焼き込んで push し、Cloud Run へ出します。Cloud Build は標準の `e2-standard-2` を使い、月 2,500 分の無料枠の対象にします。高性能マシンは指定しません。リージョンは `asia-northeast1`、2 vCPU、4GiB、concurrency 1、0–2 インスタンス、リクエストタイムアウト 60 秒です。プラットフォーム上は未認証で公開し、アプリ側の Bearer キーで守ります。
