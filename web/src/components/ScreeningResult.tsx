@@ -1,7 +1,8 @@
 import HandJointDiagram from "@/components/HandJointDiagram";
 import StatusBadge from "@/components/StatusBadge";
 import { formatJapanDateTime } from "@/lib/japan-date-time";
-import { JOINT_LABELS, type JointName } from "@/lib/joints";
+import { JOINT_NAMES } from "@/lib/joints";
+import { describeJoint, describeWarning, formatProbability, parseHandSummaries } from "@/lib/analysis-display";
 import type { JointResult, Screening } from "@/lib/types";
 
 interface ScreeningResultProps {
@@ -21,13 +22,9 @@ export default function ScreeningResult({
   images,
   hideCapturedAt = false,
 }: ScreeningResultProps) {
-  const rightJoints = joints.filter((j) => j.side === "right");
-  const leftJoints = joints.filter((j) => j.side === "left");
-  const rightInflamed = rightJoints.filter((j) => j.is_inflamed);
-  const leftInflamed = leftJoints.filter((j) => j.is_inflamed);
-  const inflamed = [...rightInflamed, ...leftInflamed];
-  const totalPositiveJoints = screening.total_inflamed_joints ?? inflamed.length;
-  const raDetected = screening.ra_detected ?? (inflamed.length > 0);
+  const summaries = parseHandSummaries(screening.ai_hands);
+  const totalPositiveJoints = screening.total_inflamed_joints;
+  const raDetected = screening.ra_detected;
   const handImages = [
     { side: "left", label: "左手", url: images?.left },
     { side: "right", label: "右手", url: images?.right },
@@ -74,46 +71,80 @@ export default function ScreeningResult({
         <>
           <div
             className={`rounded-xl p-4 text-center font-bold ${
-              raDetected
+              raDetected === null ? "bg-surface-muted text-secondary-foreground" : raDetected
                 ? "bg-danger text-danger-foreground"
                 : "bg-success text-success-foreground"
             }`}
           >
-            {raDetected
-              ? `RAスクリーニング陽性（陽性関節 ${totalPositiveJoints} 箇所）`
-              : "RAスクリーニング陰性"}
+            {raDetected === null ? "RAスクリーニング判定 未提供" : raDetected ? "RAスクリーニング陽性" : "RAスクリーニング陰性"}
+            <p className="mt-1 text-sm">陽性関節数: {totalPositiveJoints === null ? "未提供" : `${totalPositiveJoints} 箇所`}</p>
             <p className="mt-1 text-xs font-normal opacity-80">
               この判定はスクリーニング結果であり、診断結果ではありません。
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-border bg-surface p-3">
-              <HandJointDiagram joints={leftJoints} mirror className="w-full" />
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-3">
-              <HandJointDiagram joints={rightJoints} className="w-full" />
-            </div>
-          </div>
-
-          {inflamed.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface">
-              <p className="border-b border-border px-4 py-3 font-medium">検出された関節</p>
-              <ul className="divide-y divide-border">
-                {inflamed.map((j) => (
-                  <li key={j.id} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-sm">
-                      {j.side === "right" ? "右手" : "左手"}{" "}
-                      {JOINT_LABELS[j.joint_name as JointName] ?? j.joint_name}
-                    </span>
-                    <span className="text-sm font-medium text-danger-foreground">
-                      確度 {(j.confidence_score * 100).toFixed(0)}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {summaries.invalid && (
+            <p role="alert" className="rounded-xl border border-warning-border bg-warning p-4 text-sm text-warning-foreground">
+              保存された解析情報の一部を表示できません。
+            </p>
           )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {handImages.map(({ side, label }) => {
+              const summary = summaries.hands[side];
+              const handJoints = joints.filter((joint) => joint.side === side);
+              const jointMap = new Map(handJoints.map((joint) => [joint.joint_name, joint]));
+              return (
+                <section key={side} className="min-w-0 rounded-xl border border-border bg-surface p-3">
+                  <h3 className="font-semibold">{label}の解析結果</h3>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    {[
+                      ["判定", summary ? (summary.ra_detected ? "陽性" : "陰性") : "未提供"],
+                      ["手全体の陽性確率", formatProbability(summary?.hand_probability) ?? "未提供"],
+                      ["陽性関節数", summary ? `${summary.num_positive_joints} 箇所` : "未提供"],
+                      ["検出関節数", summary ? `${summary.num_joints_detected} 箇所` : "未提供"],
+                    ].map(([name, value]) => (
+                      <div key={name} className="flex flex-wrap justify-between gap-x-3">
+                        <dt className="text-muted-foreground">{name}</dt><dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {summary?.detailsOmitted && handJoints.length === 0 && (
+                    <p className="mt-3 text-sm text-muted-foreground">関節ごとの詳細は未提供</p>
+                  )}
+                  {summary && summary.warnings.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-warning-border bg-warning p-3 text-sm text-warning-foreground">
+                      <h4 className="font-semibold">解析上の注意</h4>
+                      <ul className="mt-2 space-y-3">
+                        {summary.warnings.map((warning, index) => {
+                          const { original, explanation } = describeWarning(warning);
+                          return <li key={index} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {explanation ?? original}
+                            {explanation && <details className="mt-1"><summary className="cursor-pointer">原文を表示</summary><p>{original}</p></details>}
+                          </li>;
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  <HandJointDiagram joints={handJoints} mirror={side === "left"} currentApi={Boolean(summary)} className="mx-auto mt-3 w-full max-w-xs" />
+                  <details className="mt-3 border-t border-border pt-3">
+                    <summary className="cursor-pointer text-sm font-medium">{label}の全関節の詳細（15関節）</summary>
+                    <ul className="mt-2 divide-y divide-border">
+                      {JOINT_NAMES.map((name) => {
+                        const description = describeJoint(name, jointMap.get(name), Boolean(summary));
+                        return <li key={name} className={`flex flex-wrap items-center justify-between gap-2 rounded px-2 py-2 text-xs ${description.missing ? "bg-surface-muted text-muted-foreground" : "text-foreground"}`}>
+                          <span>{description.label}</span>
+                          <span className={description.inflamed ? "font-medium text-danger-foreground" : ""}>
+                            {description.status}
+                            {description.confidence !== null && <span className="ml-2">陽性確率 {description.confidence}</span>}
+                          </span>
+                        </li>;
+                      })}
+                    </ul>
+                  </details>
+                </section>
+              );
+            })}
+          </div>
         </>
       )}
     </div>

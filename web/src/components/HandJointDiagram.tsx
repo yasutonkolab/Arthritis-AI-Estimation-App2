@@ -1,16 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { JOINT_LABELS, JOINT_NAMES, type JointName } from "@/lib/joints";
+import { JOINT_NAMES, type JointName } from "@/lib/joints";
 
-interface Joint {
-  joint_name: string;
-  is_inflamed: boolean;
-  confidence_score?: number;
-}
+import { describeJoint, type DisplayJoint } from "@/lib/analysis-display";
 
 interface HandJointDiagramProps {
-  joints: Joint[];
+  joints: DisplayJoint[];
+  currentApi?: boolean;
   /** 左手表示用の反転フラグ */
   mirror?: boolean;
   className?: string;
@@ -68,38 +65,20 @@ const HAND_OUTLINE = [
 const SVG_WIDTH = 200;
 const SVG_HEIGHT = 220;
 
-function formatConfidence(score: number | undefined) {
-  if (score == null) return null;
-  return `${(score * 100).toFixed(0)}%`;
-}
-
-function describeJoint(name: JointName, joint: Joint | undefined) {
-  const label = JOINT_LABELS[name];
-  const inflamed = joint?.is_inflamed ?? false;
-  const confidence = formatConfidence(joint?.confidence_score);
-  const status = inflamed ? "炎症の疑いあり" : "炎症の疑いなし";
-  return {
-    label,
-    inflamed,
-    confidence,
-    status,
-    text: `${label}、${status}${confidence ? `、確度 ${confidence}` : ""}`,
-  };
-}
-
 export default function HandJointDiagram({
   joints,
   mirror = false,
+  currentApi = false,
   className = "",
 }: HandJointDiagramProps) {
   const [selectedName, setSelectedName] = useState<JointName | null>(null);
   const [hoveredName, setHoveredName] = useState<JointName | null>(null);
   const jointMap = new Map(joints.map((j) => [j.joint_name, j]));
-  const inflamedCount = joints.filter((j) => j.is_inflamed).length;
   const selectedJoint = selectedName ? jointMap.get(selectedName) : undefined;
+  const selectedDesc = selectedName ? describeJoint(selectedName, selectedJoint, currentApi) : null;
   const hoveredJoint = hoveredName ? jointMap.get(hoveredName) : undefined;
   const hoveredPos = hoveredName ? JOINT_POSITIONS[hoveredName] : null;
-  const hoveredDesc = hoveredName ? describeJoint(hoveredName, hoveredJoint) : null;
+  const hoveredDesc = hoveredName ? describeJoint(hoveredName, hoveredJoint, currentApi) : null;
   const handLabel = mirror ? "左手" : "右手";
   const tooltipXPercent = hoveredPos
     ? ((mirror ? SVG_WIDTH - hoveredPos.x : hoveredPos.x) / SVG_WIDTH) * 100
@@ -126,7 +105,7 @@ export default function HandJointDiagram({
           viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
           className="w-full"
           role="group"
-          aria-label={`${handLabel}の関節図。関節を選ぶと確度が表示されます`}
+          aria-label={`${handLabel}の関節図。関節を選ぶと陽性確率が表示されます`}
         >
           <g transform={mirror ? "translate(200 0) scale(-1 1)" : undefined}>
             <path
@@ -142,7 +121,7 @@ export default function HandJointDiagram({
               const joint = jointMap.get(name);
               const inflamed = joint?.is_inflamed ?? false;
               const isSelected = selectedName === name;
-              const desc = describeJoint(name, joint);
+              const desc = describeJoint(name, joint, currentApi);
 
               return (
                 <g
@@ -188,13 +167,14 @@ export default function HandJointDiagram({
                     cy={pos.y}
                     r="5"
                     fill={
-                      inflamed ? "var(--color-joint-inflamed)" : "var(--color-joint-marker)"
+                      desc.missing ? "var(--color-joint-unavailable)" : inflamed ? "var(--color-joint-inflamed)" : "var(--color-joint-marker)"
                     }
                     stroke={
                       inflamed
                         ? "var(--color-joint-inflamed-outline)"
                         : "var(--color-joint-outline)"
                     }
+                    strokeDasharray={desc.missing ? "2 2" : undefined}
                     strokeWidth="1.5"
                     pointerEvents="none"
                   />
@@ -225,30 +205,29 @@ export default function HandJointDiagram({
             <p className="font-medium">{hoveredDesc.label}</p>
             <p className={hoveredDesc.inflamed ? "text-tooltip-danger" : "text-tooltip-muted"}>
               {hoveredDesc.status}
-              {hoveredDesc.confidence ? `　確度 ${hoveredDesc.confidence}` : ""}
+              {hoveredDesc.confidence ? `　陽性確率 ${hoveredDesc.confidence}` : ""}
             </p>
           </div>
         )}
       </div>
 
       <div className="mt-1 min-h-[2.75rem] text-center" aria-live="polite">
-        {selectedName ? (
+        {selectedDesc ? (
           <>
-            <p className="text-xs font-semibold text-foreground">{JOINT_LABELS[selectedName]}</p>
+            <p className="text-xs font-semibold text-foreground">{selectedDesc.label}</p>
             <p
               className={`text-xs ${
                 selectedJoint?.is_inflamed ? "font-medium text-danger-foreground" : "text-muted-foreground"
               }`}
             >
-              {selectedJoint?.is_inflamed ? "炎症の疑いあり" : "炎症の疑いなし"}
-              {selectedJoint?.confidence_score != null &&
-                `　確度 ${formatConfidence(selectedJoint.confidence_score)}`}
+              {selectedDesc.status}
+              {selectedDesc.confidence !== null && `　陽性確率 ${selectedDesc.confidence}`}
             </p>
           </>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground">炎症の疑い: {inflamedCount}箇所</p>
-            <p className="text-xs text-subtle-foreground">関節をタップすると確度が表示されます</p>
+            <p className="text-xs text-muted-foreground">灰色の破線: 結果なし・解析対象外</p>
+            <p className="text-xs text-muted-foreground">関節をタップすると陽性確率が表示されます</p>
           </>
         )}
       </div>
