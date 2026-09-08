@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "NO_HAND_DETECTED",
+    "message": "No hand was detected in the image.",
+    "side": "left"
+  },
+  "request_id": "req-fixture-no-hand"
+}

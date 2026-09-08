@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+test_images
+validation
+tests
+.env
+.env.*
+*.pyc
+README.md
+requirements.txt
+requirements-api.txt
+test.sh

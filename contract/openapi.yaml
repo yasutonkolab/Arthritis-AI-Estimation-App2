@@ -1,0 +1,249 @@
+openapi: 3.0.3
+info:
+  title: RA screening API
+  description: |
+    Next.js の analyzeScreening から呼び出す同期 REST API。
+    画像本体・患者情報・Supabase のクレデンシャルは受け取らない。
+    ra_detected はスクリーニング判定であり、診断結果ではない。
+  version: 1.0.0
+servers:
+  - url: "{AI_API_URL}"
+    variables:
+      AI_API_URL:
+        default: https://ai.example
+paths:
+  /v1/ra-screening:
+    post:
+      operationId: createRaScreening
+      summary: 手指画像をスクリーニングする
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaScreeningRequest"
+            examples:
+              bothHands:
+                $ref: "#/components/examples/RequestBothHands"
+      responses:
+        "200":
+          description: 検証可能なスクリーニング結果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningResponse"
+              examples:
+                bothHands:
+                  $ref: "#/components/examples/SuccessBothHands"
+                withJoints:
+                  $ref: "#/components/examples/SuccessWithJoints"
+        "401":
+          description: 共有 API キーが無い、または一致しない
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+        "413":
+          description: 画像が大きすぎる
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+        "415":
+          description: JPEG・PNG以外
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+        "422":
+          description: リクエスト、署名付きURL、画像、または手の検出に失敗
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+              examples:
+                noHandDetected:
+                  $ref: "#/components/examples/ErrorNoHandDetected"
+        "500":
+          description: 推論処理の失敗
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+        "502":
+          description: 画像の取得失敗
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+        "504":
+          description: 画像取得タイムアウト
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaScreeningErrorResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  examples:
+    RequestBothHands:
+      summary: 左手・右手の署名付き URL
+      externalValue: ./fixtures/request-both-hands.json
+    SuccessBothHands:
+      summary: 関節詳細なしの正常系
+      externalValue: ./fixtures/success-both-hands.json
+    SuccessWithJoints:
+      summary: 関節詳細ありの正常系
+      externalValue: ./fixtures/success-with-joints.json
+    ErrorNoHandDetected:
+      summary: 手が検出できない
+      externalValue: ./fixtures/error-no-hand-detected.json
+  schemas:
+    HandSide:
+      type: string
+      enum: [left, right]
+    RaScreeningImage:
+      type: object
+      additionalProperties: false
+      required: [side, image_url]
+      properties:
+        side:
+          $ref: "#/components/schemas/HandSide"
+        image_url:
+          type: string
+          format: uri
+    RaScreeningRequest:
+      type: object
+      additionalProperties: false
+      required: [images]
+      properties:
+        images:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/RaScreeningImage"
+    JointName:
+      type: string
+      enum:
+        - MCP1
+        - MCP2
+        - MCP3
+        - MCP4
+        - MCP5
+        - PIP2
+        - PIP3
+        - PIP4
+        - PIP5
+        - IP1 (thumb)
+        - Wrist
+    JointId:
+      type: integer
+      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15]
+    JointResult:
+      type: object
+      additionalProperties: false
+      required: [joint_id, joint_name, probability, positive]
+      properties:
+        joint_id:
+          $ref: "#/components/schemas/JointId"
+        joint_name:
+          $ref: "#/components/schemas/JointName"
+        probability:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        positive:
+          type: boolean
+    HandResult:
+      type: object
+      additionalProperties: false
+      required:
+        - side
+        - ra_detected
+        - hand_probability
+        - num_positive_joints
+        - num_joints_detected
+        - joints
+        - warnings
+      properties:
+        side:
+          $ref: "#/components/schemas/HandSide"
+        ra_detected:
+          type: boolean
+        hand_probability:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        num_positive_joints:
+          type: integer
+          minimum: 0
+        num_joints_detected:
+          type: integer
+          minimum: 0
+        joints:
+          type: array
+          items:
+            $ref: "#/components/schemas/JointResult"
+        warnings:
+          type: array
+          items: {}
+    RaScreeningResponse:
+      type: object
+      additionalProperties: false
+      required: [hands, ra_detected, total_positive_joints]
+      properties:
+        model_version:
+          type: string
+          description: 未提供または空文字はアプリ側で未提供として保存する
+        hands:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/HandResult"
+        ra_detected:
+          type: boolean
+          description: 手ごとの ra_detected の論理和
+        total_positive_joints:
+          type: integer
+          minimum: 0
+          description: 手ごとの num_positive_joints の合計
+    ErrorCode:
+      type: string
+      enum:
+        - UNAUTHORIZED
+        - IMAGE_TOO_LARGE
+        - UNSUPPORTED_IMAGE_TYPE
+        - INVALID_REQUEST
+        - INVALID_IMAGE
+        - NO_HAND_DETECTED
+        - IMAGE_FETCH_FAILED
+        - IMAGE_FETCH_TIMEOUT
+        - INFERENCE_ERROR
+    RaScreeningError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+        side:
+          $ref: "#/components/schemas/HandSide"
+    RaScreeningErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/RaScreeningError"
+        request_id:
+          type: string

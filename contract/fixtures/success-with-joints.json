@@ -1,0 +1,51 @@
+{
+  "model_version": "2026-09-08-v1",
+  "hands": [
+    {
+      "side": "left",
+      "ra_detected": true,
+      "hand_probability": 0.48,
+      "num_positive_joints": 2,
+      "num_joints_detected": 3,
+      "joints": [
+        {
+          "joint_id": 1,
+          "joint_name": "MCP1",
+          "probability": 0.46,
+          "positive": false
+        },
+        {
+          "joint_id": 14,
+          "joint_name": "IP1 (thumb)",
+          "probability": 0.48,
+          "positive": true
+        },
+        {
+          "joint_id": 15,
+          "joint_name": "Wrist",
+          "probability": 0.5,
+          "positive": true
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "side": "right",
+      "ra_detected": false,
+      "hand_probability": 0.22,
+      "num_positive_joints": 0,
+      "num_joints_detected": 1,
+      "joints": [
+        {
+          "joint_id": 1,
+          "joint_name": "MCP1",
+          "probability": 0.45,
+          "positive": false
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "ra_detected": true,
+  "total_positive_joints": 2
+}

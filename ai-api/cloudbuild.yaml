@@ -1,0 +1,34 @@
+# Cloud Build: bake weights into the image and push to Artifact Registry.
+# Cloud Run への反映は scripts/deploy-cloud-run.sh がこの設定を呼んだあと行う。
+substitutions:
+  _IMAGE: asia-northeast1-docker.pkg.dev/PROJECT/ra-inference/ra-image-inference:tag
+steps:
+  - id: require-weights
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        test -f model/ra_screening_model.pt \
+          || { echo "model/ra_screening_model.pt is missing. Place the delivered checkpoint before deploying."; exit 1; }
+        test -f model/ra_screening_model.json \
+          || { echo "model/ra_screening_model.json is missing."; exit 1; }
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --platform=linux/amd64
+      - -t
+      - ${_IMAGE}
+      - .
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_IMAGE}
+images:
+  - ${_IMAGE}
+options:
+  logging: CLOUD_LOGGING_ONLY
+  diskSizeGb: 50
+  # machineType は指定しない。未指定は e2-standard-2 で、月 2,500 分の無料枠の対象。

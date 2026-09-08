@@ -1,0 +1,12 @@
+{
+  "images": [
+    {
+      "side": "left",
+      "image_url": "https://storage.example/left.jpg"
+    },
+    {
+      "side": "right",
+      "image_url": "https://storage.example/right.jpg"
+    }
+  ]
+}

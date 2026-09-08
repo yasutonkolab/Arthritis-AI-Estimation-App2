@@ -1,0 +1,13 @@
+# app/serve.py だけを動かすための依存関係(推論専用)。
+# train_eval.py側の学習用パッケージ(optuna, wandb, pandas, scikit-learn, openai等)は不要。
+
+numpy>=1.26,<2
+Pillow>=10.3
+requests>=2.32                # 画像URL/クラウドストレージからの画像取得
+
+torch>=2.3
+torchvision>=0.18
+torch-geometric>=2.5          # torch/CUDAのバージョンに合ったビルド済みwheelが必要
+                               # (先にtorchを入れてから、 https://pytorch-geometric.com/whl を参照)
+
+mediapipe>=0.10,<0.10.15       # 0.10.15以降でmp.solutions.hands APIが廃止されているため上限指定

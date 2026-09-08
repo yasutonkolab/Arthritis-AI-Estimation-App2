@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+
+  --color-background: 249 250 251;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 249 250 251;
+  --color-surface-hover: 243 244 246;
+  --color-foreground: 17 24 39;
+  --color-secondary-foreground: 55 65 81;
+  --color-muted-foreground: 107 114 128;
+  --color-subtle-foreground: 156 163 175;
+  --color-inverse-foreground: 255 255 255;
+  --color-border: 229 231 235;
+  --color-border-strong: 209 213 219;
+  --color-primary: 14 116 144;
+  --color-primary-hover: 21 94 117;
+  --color-primary-foreground: 255 255 255;
+  --color-primary-subtle: 236 254 255;
+  --color-primary-subtle-foreground: 14 116 144;
+  --color-link: 37 99 235;
+  --color-link-hover: 30 64 175;
+  --color-focus: 8 145 178;
+  --color-tooltip: 17 24 39;
+  --color-tooltip-foreground: 255 255 255;
+  --color-tooltip-muted: 209 213 219;
+  --color-tooltip-danger: 254 202 202;
+  --color-disabled: 229 231 235;
+  --color-disabled-foreground: 107 114 128;
+  --color-info: 219 234 254;
+  --color-info-foreground: 29 78 216;
+  --color-info-border: 147 197 253;
+  --color-info-solid: 30 64 175;
+  --color-info-solid-hover: 30 58 138;
+  --color-info-solid-foreground: 255 255 255;
+  --color-success: 220 252 231;
+  --color-success-foreground: 21 128 61;
+  --color-success-border: 134 239 172;
+  --color-warning: 254 249 195;
+  --color-warning-foreground: 133 77 14;
+  --color-warning-border: 253 224 71;
+  --color-warning-accent: 202 138 4;
+  --color-danger: 254 226 226;
+  --color-danger-foreground: 185 28 28;
+  --color-danger-border: 252 165 165;
+  --color-danger-solid: 220 38 38;
+  --color-danger-solid-hover: 185 28 28;
+  --color-danger-solid-foreground: 255 255 255;
+  --color-joint-hand: #f5f5f4;
+  --color-joint-outline: #a8a29e;
+  --color-joint-marker: #d6d3d1;
+  --color-joint-label: #78716c;
+  --color-joint-inflamed: #ef4444;
+  --color-joint-inflamed-outline: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-dark-mode-enabled="true"] {
+    color-scheme: dark;
+
+    --color-background: 9 14 23;
+    --color-surface: 17 24 39;
+    --color-surface-muted: 24 33 48;
+    --color-surface-hover: 31 41 55;
+    --color-foreground: 243 244 246;
+    --color-secondary-foreground: 209 213 219;
+    --color-muted-foreground: 156 163 175;
+    --color-subtle-foreground: 107 114 128;
+    --color-inverse-foreground: 255 255 255;
+    --color-border: 55 65 81;
+    --color-border-strong: 75 85 99;
+    --color-primary: 34 211 238;
+    --color-primary-hover: 103 232 249;
+    --color-primary-foreground: 8 47 73;
+    --color-primary-subtle: 22 78 99;
+    --color-primary-subtle-foreground: 165 243 252;
+    --color-link: 96 165 250;
+    --color-link-hover: 147 197 253;
+    --color-focus: 34 211 238;
+    --color-tooltip: 3 7 18;
+    --color-tooltip-foreground: 255 255 255;
+    --color-tooltip-muted: 209 213 219;
+    --color-tooltip-danger: 254 202 202;
+    --color-disabled: 55 65 81;
+    --color-disabled-foreground: 156 163 175;
+    --color-info: 30 58 138;
+    --color-info-foreground: 191 219 254;
+    --color-info-border: 30 64 175;
+    --color-info-solid: 59 130 246;
+    --color-info-solid-hover: 96 165 250;
+    --color-info-solid-foreground: 15 23 42;
+    --color-success: 20 83 45;
+    --color-success-foreground: 187 247 208;
+    --color-success-border: 22 101 52;
+    --color-warning: 113 63 18;
+    --color-warning-foreground: 254 240 138;
+    --color-warning-border: 161 98 7;
+    --color-warning-accent: 250 204 21;
+    --color-danger: 127 29 29;
+    --color-danger-foreground: 254 202 202;
+    --color-danger-border: 153 27 27;
+    --color-danger-solid: 248 113 113;
+    --color-danger-solid-hover: 252 165 165;
+    --color-danger-solid-foreground: 69 10 10;
+    --color-joint-hand: #374151;
+    --color-joint-outline: #9ca3af;
+    --color-joint-marker: #6b7280;
+    --color-joint-label: #d1d5db;
+    --color-joint-inflamed: #f87171;
+    --color-joint-inflamed-outline: #fecaca;
+  }
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
+
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .px-safe-4 {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+
+  .px-safe-6 {
+    padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+  }
+
+  /* 下部ナビの高さ（5rem）＋ホームインジケータ */
+  .pb-nav-safe {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

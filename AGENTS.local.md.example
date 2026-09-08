@@ -1,0 +1,7 @@
+# ローカル専用。このファイルを AGENTS.local.md にコピーして値を入れる。
+# AGENTS.local.md は gitignore 済み。コミットしない。
+
+パスワードはいずれも `your-password`。
+
+- `admin@example.com` [本部管理者]
+- `doctor1@example.com` [医療機関スタッフ]

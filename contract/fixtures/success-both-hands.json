@@ -1,0 +1,25 @@
+{
+  "model_version": "2026-09-08-v1",
+  "hands": [
+    {
+      "side": "left",
+      "ra_detected": true,
+      "hand_probability": 0.48,
+      "num_positive_joints": 3,
+      "num_joints_detected": 11,
+      "joints": [],
+      "warnings": []
+    },
+    {
+      "side": "right",
+      "ra_detected": false,
+      "hand_probability": 0.22,
+      "num_positive_joints": 0,
+      "num_joints_detected": 11,
+      "joints": [],
+      "warnings": []
+    }
+  ],
+  "ra_detected": true,
+  "total_positive_joints": 3
+}

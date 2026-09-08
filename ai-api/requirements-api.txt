@@ -1,0 +1,3 @@
+# API and deployment dependencies. The received requirements.txt is unchanged.
+fastapi==0.115.12
+uvicorn[standard]==0.30.6

@@ -1,0 +1,25 @@
+# Files excluded from the Cloud Build source archive. The Dockerfile copies only
+# the API, model, and runtime requirements, so local tools and test artifacts
+# must never be uploaded. .dockerignore does not apply to this upload.
+.gcloudignore
+.git
+.venv/
+__pycache__/
+.pytest_cache/
+test_images/
+tests/
+validation/
+.DS_Store
+*.pyc
+.env
+.env.*
+requirements-api.txt
+requirements-test.txt
+README.md
+test.sh
+examples/
+scripts/
+# The Dockerfile needs both the model weights and this version manifest.
+# The .pt is gitignored and must exist locally at deploy time.
+!model/ra_screening_model.pt
+!model/ra_screening_model.json

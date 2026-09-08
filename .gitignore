@@ -1,0 +1,8 @@
+.DS_Store
+.env*
+!.env.example
+AGENTS.local.md
+node_modules/
+.venv/
+.vercel
+.next/
