@@ -24,19 +24,63 @@ function isValidUuid(value: string) {
 }
 
 /** 新規の被験者ID（Subject）を発行 */
-export async function createSubject(): Promise<{
+export async function createSubject(screeningId?: string): Promise<{
   subjectId: string | null;
   error: string | null;
 }> {
   const current = await getCurrentUser();
-  if (!current || !current.profile.clinic_id) {
-    return { subjectId: null, error: "医療機関所属のスタッフのみ実行可能です" };
+  if (!current) {
+    return { subjectId: null, error: "ログインが必要です" };
   }
 
   const supabase = await createClient();
+  let clinicId = current.profile.clinic_id;
+
+  // 本部管理者は医療機関に所属しないため、詳細画面からの発行時は
+  // 対象記録の被験者または撮影者から医療機関を確定する。
+  if (screeningId !== undefined) {
+    if (!isValidUuid(screeningId)) {
+      return { subjectId: null, error: "スクリーニング記録の指定が不正です" };
+    }
+
+    const { data: screening, error: screeningError } = await supabase
+      .from("screenings")
+      .select("subject_id, created_by")
+      .eq("id", screeningId)
+      .maybeSingle();
+    if (screeningError) {
+      console.error("被験者ID発行時のスクリーニング取得エラー:", screeningError);
+      return { subjectId: null, error: "スクリーニング記録の取得に失敗しました" };
+    }
+    if (!screening) {
+      return { subjectId: null, error: "このスクリーニング記録を変更する権限がありません" };
+    }
+
+    try {
+      const screeningClinicId = await getScreeningClinicId(supabase, screening);
+      if (!screeningClinicId) {
+        return { subjectId: null, error: "記録の医療機関を特定できません" };
+      }
+      if (
+        current.profile.role !== "admin" &&
+        current.profile.clinic_id !== screeningClinicId
+      ) {
+        return { subjectId: null, error: "この医療機関の被験者IDを発行する権限がありません" };
+      }
+      clinicId = screeningClinicId;
+    } catch (error) {
+      console.error("被験者ID発行時の所属医療機関確認エラー:", error);
+      return { subjectId: null, error: "記録の医療機関の確認に失敗しました" };
+    }
+  }
+
+  if (!clinicId) {
+    return { subjectId: null, error: "医療機関所属のスタッフのみ実行可能です" };
+  }
+
   const { data, error } = await supabase
     .from("subjects")
-    .insert({ clinic_id: current.profile.clinic_id })
+    .insert({ clinic_id: clinicId })
     .select("id")
     .single();
 
@@ -44,7 +88,7 @@ export async function createSubject(): Promise<{
     console.error("Subject作成エラー:", error);
     return { subjectId: null, error: "被験者IDの作成に失敗しました" };
   }
-  
+
   revalidatePath("/subjects");
   return { subjectId: data.id, error: null };
 }

@@ -42,7 +42,7 @@ export default function SubjectAssignmentEditor({
     setCreating(true);
     setError(null);
     setSuccess(null);
-    const result = await createSubject();
+    const result = await createSubject(screeningId);
     setCreating(false);
 
     if (result.error) {
@@ -80,7 +80,7 @@ export default function SubjectAssignmentEditor({
           <CardTitle>被験者IDの紐付け</CardTitle>
           {!editing && (
             <Button type="button" variant="secondary" size="sm" onClick={() => setEditing(true)}>
-              修正・解除
+              {currentSubjectId ? "修正・解除" : "紐付け"}
             </Button>
           )}
         </div>
@@ -92,7 +92,7 @@ export default function SubjectAssignmentEditor({
           <div className="space-y-3 rounded-lg border border-warning-border bg-warning p-3">
             <div>
               <label htmlFor="subject-id" className="mb-1 block text-sm font-medium text-foreground">
-                変更後の被験者ID
+                {currentSubjectId ? "変更後の被験者ID" : "紐付ける被験者ID"}
               </label>
               <select
                 id="subject-id"
