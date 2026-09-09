@@ -517,6 +517,72 @@ export async function createStaff(
   return result;
 }
 
+/** 本部管理者一覧を取得（無効なアカウントも含む） */
+export async function getAdmins() {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, is_active")
+    .eq("role", "admin")
+    .order("created_at", { ascending: false });
+  if (error) throwSupabaseError(error, "管理者一覧の取得");
+  return data ?? [];
+}
+
+/** 本部管理者1件を取得 */
+export async function getAdmin(adminId: string) {
+  await requireAdmin();
+  if (!isValidUuid(adminId)) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, is_active")
+    .eq("id", adminId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error) throwSupabaseError(error, "管理者の取得");
+  return data;
+}
+
+/** 本部管理者の表示名を更新 */
+export async function updateAdminName(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { error: "管理者権限が必要です", success: false };
+  }
+  const adminId = getRequiredText(formData, "admin_id");
+  const fullName = getRequiredText(formData, "full_name");
+  if (!isValidUuid(adminId)) {
+    return { error: "管理者の指定が不正です", success: false };
+  }
+  if (!fullName) return { error: "管理者氏名を入力してください", success: false };
+  if (fullName.length > MAX_NAME_LENGTH) {
+    return { error: "管理者氏名は100文字以内で入力してください", success: false };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName })
+    .eq("id", adminId)
+    .eq("role", "admin")
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error("管理者氏名の更新エラー:", error);
+    return { error: "管理者氏名の更新に失敗しました", success: false };
+  }
+  if (!data) return { error: "管理者が見つかりません", success: false };
+
+  // 自分の名前を変更した場合はヘッダーの表示名も更新する。
+  revalidatePath("/admin", "layout");
+  return { error: null, success: true };
+}
+
 /** 本部管理者アカウント発行 */
 export async function createAdmin(
   _prevState: ActionState,
@@ -532,12 +598,14 @@ export async function createAdmin(
   if (!credentials) return { error, success: false };
 
   // Service Role を使う前に、呼び出し元が有効な管理者であることを確認する。
-  return createManagedAccount({
+  const result = await createManagedAccount({
     ...credentials,
     role: "admin",
     clinicId: null,
     accountLabel: "管理者",
   });
+  if (result.success) revalidatePath("/admin/admins");
+  return result;
 }
 
 /** 本部用：全医療機関の撮影・解析データを検索して1ページ取得 */

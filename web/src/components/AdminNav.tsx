@@ -14,10 +14,6 @@ const NAV_ITEMS = [
     label: "医療機関の一覧",
   },
   {
-    href: "/admin/staffs",
-    label: "スタッフ一覧",
-  },
-  {
     href: "/admin/screenings",
     label: "全撮影データ・解析結果",
   },

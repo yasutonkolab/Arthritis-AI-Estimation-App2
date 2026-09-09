@@ -1,0 +1,43 @@
+import { getAdmins } from "@/app/actions/admin";
+import { Card, CardContent } from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Link from "next/link";
+
+export default async function AdminsPage() {
+  const admins = await getAdmins();
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">本部管理者一覧</h1>
+          <p className="mt-1 text-sm text-muted-foreground">すべての本部管理者アカウントを確認し、表示名を変更できます。</p>
+        </div>
+        <Link href="/admin/admins/new"><Button>＋ 管理者アカウント発行</Button></Link>
+      </div>
+      <Card>
+        <CardContent>
+          {admins.length === 0 ? (
+            <p className="text-sm text-muted-foreground">登録されている管理者アカウントはありません。</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {admins.map((admin) => (
+                <li key={admin.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold text-foreground">{admin.full_name}</p>
+                    <p className="break-all text-xs text-muted-foreground">ID: {admin.id}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`rounded px-2 py-1 text-xs font-semibold ${admin.is_active ? "bg-success text-success-foreground" : "bg-danger text-danger-foreground"}`}>
+                      {admin.is_active ? "有効" : "無効"}
+                    </span>
+                    <Link href={`/admin/admins/${admin.id}/edit`}><Button variant="secondary" size="sm">編集</Button></Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

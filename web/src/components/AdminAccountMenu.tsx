@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/DropdownMenu";
 
 export const ADMIN_ACCOUNT_LINKS = [
-  { href: "/admin/staffs/new", label: "スタッフアカウント発行" },
-  { href: "/admin/admins/new", label: "本部管理者アカウント発行" },
+  { href: "/admin/staffs", label: "スタッフ一覧" },
+  { href: "/admin/admins", label: "本部管理者一覧" },
 ] as const;
 
 export default function AdminAccountMenu({ isCurrent = false }: { isCurrent?: boolean }) {

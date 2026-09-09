@@ -33,7 +33,7 @@ test("未ログインの更新ActionはService Roleへ到達しない", async ()
     ["subjects", "createSubject", []],
     ["subjects", "assignScreeningsToSubject", ["keio1", [screeningId]]],
     ["subjects", "correctScreeningSubject", [screeningId, "keio1"]],
-    ...["createClinic", "updateClinic", "updateStaff", "resetStaffPassword", "createStaff", "createAdmin"]
+    ...["createClinic", "updateClinic", "updateStaff", "updateAdminName", "resetStaffPassword", "createStaff", "createAdmin"]
       .map((name) => ["admin", name, [{ error: null, success: false }, new FormData()]]),
   ];
   for (const [file, name, args] of cases) {
@@ -164,4 +164,34 @@ test("後片付け: 無効ユーザー・参照不可・他作成者・解析開
     assert.ok((await fixture.run([path])).error);
     assert.equal(fixture.adminCalls, 0);
   }
+});
+
+test("管理者名更新: 対象ロールを限定し、表示名だけを更新する", async () => {
+  const filters = {};
+  const invalidated = [];
+  let updates = 0;
+  const query = {
+    update: (values) => { updates++; assert.deepEqual(values, { full_name: "変更後" }); return query; },
+    eq: (key, value) => { filters[key] = value; return query; },
+    select: () => query,
+    maybeSingle: async () => ({ data: { id: userId }, error: null }),
+  };
+  const actions = loadServerModule("src/app/actions/admin.ts", {
+    "@/lib/supabase/admin": { createAdminClient: () => assert.fail("Service Roleは使用しない") },
+    "@/lib/auth": { getCurrentUser: async () => ({ userId, profile: { role: "admin", is_active: true } }) },
+    "@/lib/supabase/server": { createClient: async () => ({ from: () => query }) },
+    "next/cache": { revalidatePath: (...args) => invalidated.push(args) },
+  });
+  const form = new FormData();
+  form.set("admin_id", userId);
+  for (const name of ["", " ", "あ".repeat(101)]) {
+    form.set("full_name", name);
+    assert.ok((await actions.updateAdminName({}, form)).error);
+  }
+  assert.equal(updates, 0);
+  form.set("full_name", " 変更後 ");
+  form.set("role", "clinic_staff");
+  assert.equal((await actions.updateAdminName({}, form)).success, true);
+  assert.deepEqual(filters, { id: userId, role: "admin" });
+  assert.deepEqual(invalidated, [["/admin", "layout"]]);
 });
