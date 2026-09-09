@@ -241,7 +241,7 @@ export async function getScreeningDetail(screeningId: string) {
     .eq("screening_id", screeningId);
   if (jointsError) throwSupabaseError(jointsError, "関節解析結果の取得");
 
-  // 撮影画像の閲覧は本部管理者のみ。スタッフにはパスも返さない。
+  // 撮影画像の閲覧は管理者のみ。スタッフにはパスも返さない。
   const canViewImages = current.profile.role === "admin";
   const debugResponse = canViewImages
     ? await supabase

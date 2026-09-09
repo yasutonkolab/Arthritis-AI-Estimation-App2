@@ -35,7 +35,7 @@ export default async function ResultPage({
         <div className="mb-4 space-y-3 rounded-xl border border-danger-border bg-danger p-4">
           <p className="text-sm text-danger-foreground">
             {canRetryAnalysis
-              ? "AI解析に失敗しました。本部管理者へ再解析を依頼してください。"
+              ? "AI解析に失敗しました。管理者へ再解析を依頼してください。"
               : "画像のアップロードが完了しませんでした。もう一度撮影してください。"}
           </p>
         </div>
@@ -47,7 +47,7 @@ export default async function ResultPage({
           )}
           <p className="text-sm text-warning-foreground">
             {isInterrupted
-              ? "処理が中断している可能性があります。本部管理者へ復旧を依頼してください。"
+              ? "処理が中断している可能性があります。管理者へ復旧を依頼してください。"
               : "解析中です。この画面は自動的に更新されます。"}
           </p>
         </div>

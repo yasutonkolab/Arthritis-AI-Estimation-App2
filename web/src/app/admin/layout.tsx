@@ -19,7 +19,7 @@ export default async function AdminLayout({
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-safe-6 py-3">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <Link href="/admin" className="font-bold text-primary">
-              本部管理画面
+              関節炎スクリーニング管理
             </Link>
             <AdminNav />
           </div>

@@ -93,7 +93,7 @@ async function runAnalysis(
       );
     }
 
-    // 手画像のStorage参照は本部管理者のみ。解析用URLは認可済みの
+    // 手画像のStorage参照は管理者のみ。解析用URLは認可済みの
     // このServer ActionからService Roleで発行する。
     let imageUrls: { right: string | null; left: string | null };
     try {
@@ -225,7 +225,7 @@ export async function markInterruptedScreeningFailed(
   const current = await getCurrentUser();
   if (!current) return { error: "ログインが必要です" };
   if (current.profile.role !== "admin") {
-    return { error: "中断状態の復旧は本部管理者のみ実行できます" };
+    return { error: "中断状態の復旧は管理者のみ実行できます" };
   }
 
   const supabase = await createClient();
@@ -272,14 +272,14 @@ export async function markInterruptedScreeningFailed(
   return { error: null };
 }
 
-/** 本部管理者が完了または失敗したスクリーニングを再実行する */
+/** 管理者が完了または失敗したスクリーニングを再実行する */
 export async function retryAnalysis(
   screeningId: string
 ): Promise<{ error: string | null }> {
   const current = await getCurrentUser();
   if (!current) return { error: "ログインが必要です" };
   if (current.profile.role !== "admin") {
-    return { error: "再解析は本部管理者のみ実行できます" };
+    return { error: "再解析は管理者のみ実行できます" };
   }
 
   const supabase = await createClient();

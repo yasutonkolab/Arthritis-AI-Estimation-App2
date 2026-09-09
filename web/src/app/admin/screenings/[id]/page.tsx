@@ -15,7 +15,7 @@ import {
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-export const metadata = { title: "解析結果詳細 | 本部管理画面" };
+export const metadata = { title: "解析結果詳細 | 管理画面" };
 
 export default async function AdminScreeningDetailPage({
   params,

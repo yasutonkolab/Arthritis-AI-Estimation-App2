@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     return Response.redirect(new URL("/login", request.url));
   }
   if (current.profile.role !== "admin") {
-    return new Response("CSV出力には本部管理者権限が必要です。", {
+    return new Response("CSV出力には管理者権限が必要です。", {
       status: 403,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });

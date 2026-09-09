@@ -9,8 +9,8 @@ export default async function AdminsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">本部管理者一覧</h1>
-          <p className="mt-1 text-sm text-muted-foreground">すべての本部管理者アカウントを確認し、表示名を変更できます。</p>
+          <h1 className="text-2xl font-bold text-foreground">管理者一覧</h1>
+          <p className="mt-1 text-sm text-muted-foreground">すべての管理者アカウントを確認し、表示名を変更できます。</p>
         </div>
         <Link href="/admin/admins/new"><Button>＋ 管理者アカウント発行</Button></Link>
       </div>

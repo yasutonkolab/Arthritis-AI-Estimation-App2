@@ -434,7 +434,7 @@ if (!enabled) {
         assert.equal(correctedScreening.data?.subject_id, afterSubject.data.id);
       });
 
-      await t.test("本部管理者だけが既存結果を消去して再解析を開始できる", async () => {
+      await t.test("管理者だけが既存結果を消去して再解析を開始できる", async () => {
         const screening = await adminApi
           .from("screenings")
           .insert({
@@ -712,7 +712,7 @@ if (!enabled) {
         const adminSignedUrl = await admin.storage
           .from("hand-images")
           .createSignedUrl(path, 60);
-        assert.ok(adminSignedUrl.data?.signedUrl, "本部管理者は署名付きURLを発行できること");
+        assert.ok(adminSignedUrl.data?.signedUrl, "管理者は署名付きURLを発行できること");
 
         const signedUrl = await staffB.storage
           .from("hand-images")

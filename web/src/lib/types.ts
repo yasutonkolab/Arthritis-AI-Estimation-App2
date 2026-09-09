@@ -11,7 +11,7 @@ export type JointResult = Tables<"joint_results">;
 export type Role = "admin" | "clinic_staff";
 
 export const ROLE_LABELS: Record<Role, string> = {
-  admin: "本部管理者",
+  admin: "管理者",
   clinic_staff: "医療機関スタッフ",
 };
 

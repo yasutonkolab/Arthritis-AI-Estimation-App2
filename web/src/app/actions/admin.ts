@@ -517,7 +517,7 @@ export async function createStaff(
   return result;
 }
 
-/** 本部管理者一覧を取得（無効なアカウントも含む） */
+/** 管理者一覧を取得（無効なアカウントも含む） */
 export async function getAdmins() {
   await requireAdmin();
   const supabase = await createClient();
@@ -530,7 +530,7 @@ export async function getAdmins() {
   return data ?? [];
 }
 
-/** 本部管理者1件を取得 */
+/** 管理者1件を取得 */
 export async function getAdmin(adminId: string) {
   await requireAdmin();
   if (!isValidUuid(adminId)) return null;
@@ -545,7 +545,7 @@ export async function getAdmin(adminId: string) {
   return data;
 }
 
-/** 本部管理者の表示名を更新 */
+/** 管理者の表示名を更新 */
 export async function updateAdminName(
   _prevState: ActionState,
   formData: FormData
@@ -583,7 +583,7 @@ export async function updateAdminName(
   return { error: null, success: true };
 }
 
-/** 本部管理者アカウント発行 */
+/** 管理者アカウント発行 */
 export async function createAdmin(
   _prevState: ActionState,
   formData: FormData
@@ -608,7 +608,7 @@ export async function createAdmin(
   return result;
 }
 
-/** 本部用：全医療機関の撮影・解析データを検索して1ページ取得 */
+/** 管理者用：全医療機関の撮影・解析データを検索して1ページ取得 */
 export async function getScreeningsForAdmin(
   filters: AdminScreeningFilters,
   requestedPageSize = ADMIN_SCREENINGS_PAGE_SIZE

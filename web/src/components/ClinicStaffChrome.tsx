@@ -34,7 +34,7 @@ export default function ClinicStaffChrome({
           }`}
         >
           <Link href="/" className="font-bold text-primary">
-            関節炎スクリーニング（医療従事者用）
+            関節炎スクリーニング
           </Link>
           <UserAccountMenu displayName={userName} passwordHref="/account/password" />
         </div>

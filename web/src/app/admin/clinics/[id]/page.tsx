@@ -6,7 +6,7 @@ import { formatJapanDate, formatJapanDateTime } from "@/lib/japan-date-time";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-export const metadata = { title: "医療機関の詳細 | 本部管理画面" };
+export const metadata = { title: "医療機関の詳細 | 管理画面" };
 
 export default async function ClinicDetailPage({
   params,

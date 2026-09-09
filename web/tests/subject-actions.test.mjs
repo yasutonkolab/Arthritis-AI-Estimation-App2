@@ -52,7 +52,7 @@ function loadCreateSubjectFixture() {
   return { actions, inserts };
 }
 
-test("本部管理者はスクリーニングの医療機関に被験者IDを発行できる", async () => {
+test("管理者はスクリーニングの医療機関に被験者IDを発行できる", async () => {
   const { actions, inserts } = loadCreateSubjectFixture();
 
   assert.deepEqual(await actions.createSubject(screeningId), {
@@ -64,7 +64,7 @@ test("本部管理者はスクリーニングの医療機関に被験者IDを発
   ]);
 });
 
-test("医療機関に所属しない本部管理者は対象記録なしでは被験者IDを発行できない", async () => {
+test("医療機関に所属しない管理者は対象記録なしでは被験者IDを発行できない", async () => {
   const { actions, inserts } = loadCreateSubjectFixture();
 
   assert.deepEqual(await actions.createSubject(), {

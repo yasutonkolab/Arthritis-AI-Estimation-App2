@@ -36,7 +36,7 @@ export async function createSubject(screeningId?: string): Promise<{
   const supabase = await createClient();
   let clinicId = current.profile.clinic_id;
 
-  // 本部管理者は医療機関に所属しないため、詳細画面からの発行時は
+  // 管理者は医療機関に所属しないため、詳細画面からの発行時は
   // 対象記録の被験者または撮影者から医療機関を確定する。
   if (screeningId !== undefined) {
     if (!isValidUuid(screeningId)) {

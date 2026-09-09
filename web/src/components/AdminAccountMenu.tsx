@@ -10,7 +10,7 @@ import {
 
 export const ADMIN_ACCOUNT_LINKS = [
   { href: "/admin/staffs", label: "スタッフ一覧" },
-  { href: "/admin/admins", label: "本部管理者一覧" },
+  { href: "/admin/admins", label: "管理者一覧" },
 ] as const;
 
 export default function AdminAccountMenu({ isCurrent = false }: { isCurrent?: boolean }) {
